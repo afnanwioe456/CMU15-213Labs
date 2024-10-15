@@ -1,7 +1,7 @@
 /* 
  * CS:APP Data Lab 
  * 
- * <Please put your name and userid here>
+ * by MONST3R
  * 
  * bits.c - Source file with your solutions to the Lab.
  *          This is the file you will hand in to your instructor.
@@ -143,8 +143,11 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  return 2;
+    int and1 = ~x & y;
+    int and2 = x & ~y;
+    return ~(~and1 & ~and2);
 }
+
 /* 
  * tmin - return minimum two's complement integer 
  *   Legal ops: ! ~ & ^ | + << >>
@@ -152,10 +155,9 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int tmin(void) {
-
-  return 2;
-
+    return 1 << 31;
 }
+
 //2
 /*
  * isTmax - returns 1 if x is the maximum, two's complement number,
@@ -165,8 +167,12 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  return 2;
+    // 检查x+1==~x，但注意到-1也符合
+    int addOne = x + 1; // Tmax -> Tmin, -1 -> 0
+    int check = addOne + x; // Tmax -> -1, -1 -> -1
+    return !(~check) & !!(addOne);
 }
+
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
  *   where bits are numbered from 0 (least significant) to 31 (most significant)
@@ -176,8 +182,12 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+    int mask_16 = (0xAA << 8) + 0xAA;
+    int mask_32 = (mask_16 << 16) + mask_16;
+    int masked = x & mask_32;
+    return !(masked ^ mask_32);
 }
+
 /* 
  * negate - return -x 
  *   Example: negate(1) = -1.
@@ -186,8 +196,9 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+    return ~x + 1;
 }
+
 //3
 /* 
  * isAsciiDigit - return 1 if 0x30 <= x <= 0x39 (ASCII codes for characters '0' to '9')
@@ -199,8 +210,11 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+    int bigger = x + ~0x30 + 1;
+    int smaller = 0x3a + ~x;
+    return !((bigger >> 31) | (smaller >> 31));
 }
+
 /* 
  * conditional - same as x ? y : z 
  *   Example: conditional(2,4,5) = 4
@@ -209,8 +223,11 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+    int boolean = !x;
+    int mask = boolean + ~0x0; // (boolean - 1): 0 -> 0000; 1 -> 1111;
+    return (y & mask) | (z & ~mask);
 }
+
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
  *   Example: isLessOrEqual(4,5) = 1.
@@ -219,8 +236,17 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+    // 注意这里是算数右移高位补1，可能会导致singD & xSign的结果为全1
+    int xSign = x >> 31;           // 提取 x 的符号位，正数为0，负数为1
+    int ySign = y >> 31;           // 提取 y 的符号位
+    int signDifferent = !(xSign ^ ySign); // x 和 y 的符号是否相同
+    int diff = y + (~x + 1);       // 计算 y - x
+    int diffSign = diff >> 31;     // 提取差值的符号位
+
+    // 如果符号不同，且 x 为负数则返回1，否则返回0；若符号相同，则判断 y - x 的符号
+    return (!signDifferent & xSign) | (signDifferent & !diffSign);
 }
+
 //4
 /* 
  * logicalNeg - implement the ! operator, using all of 
@@ -231,8 +257,13 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+    int neg = ~x + 1;
+    int xSign = x >> 31;
+    int negSign = neg >> 31;
+    int signOr = xSign | negSign; // 0 -> 0000; others -> 1111;
+    return signOr + 1;
 }
+
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
  *  Examples: howManyBits(12) = 5
@@ -246,8 +277,18 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+    int sign = x >> 31;
+    int bits = 0;
+    x = x ^ sign;
+    bits = !!(x >> 16) << 4;
+    bits = (!!(x >> (bits + 8)) << 3) + bits;
+    bits = (!!(x >> (bits + 4)) << 2) + bits;
+    bits = (!!(x >> (bits + 2)) << 1) + bits;
+    bits = (!!(x >> (bits + 1))) + bits;
+    bits = !!x + bits;
+    return bits + 1;
 }
+
 //float
 /* 
  * floatScale2 - Return bit-level equivalent of expression 2*f for
@@ -261,8 +302,26 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+    unsigned sign = uf >> 31;
+    unsigned exp = (uf >> 23) & 0xFF;
+    unsigned frac = uf & 0x7FFFFF;
+
+    if (exp == 0xFF) {  // NaN 或无穷大
+        return uf;
+    }
+    
+    if (exp == 0) {     // 非规范化数
+        frac = frac << 1;
+    } else {            // 规范化数，指数加1
+        exp += 1;
+        if (exp == 0xFF) {  // 如果加到溢出，返回无穷大
+            frac = 0;
+        }
+    }
+
+    return (sign << 31) | (exp << 23) | frac;
 }
+
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
  *   for floating point argument f.
@@ -276,7 +335,22 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+    unsigned sign = uf >> 31;
+    unsigned exp = (uf >> 23) & 0xFF;
+    unsigned frac = uf & 0x7FFFFF;
+    int ui;
+
+    if (exp > 157) {
+        return 0x80000000u;
+    }
+    if (exp < 127) {
+        return 0;
+    }
+    ui = (1 << (exp - 127)) | (frac >> (150 - exp));
+    if (sign == 1) {
+        return ~ui + 1;
+    }
+    return ui;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -292,5 +366,12 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    int exp = x + 127;
+    if (exp < 0) {
+        return 0;
+    }
+    if (exp > 255) {
+        return 0x7F800000;
+    }
+    return exp << 23;
 }
